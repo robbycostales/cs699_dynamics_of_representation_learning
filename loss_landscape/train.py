@@ -93,6 +93,7 @@ def get_dataloader(batch_size, train_size=None, test_size=None, transform_train_
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-D", "--debug", action='store_true')
+    parser.add_argument("--wandb", action='store_true')
     parser.add_argument("--seed", required=False, type=int, default=0)
     parser.add_argument(
         "--device", required=False, default="cuda" if torch.cuda.is_available() else "cpu"
@@ -167,11 +168,12 @@ if __name__ == "__main__":
             model.state_dict(), f"{args.result_folder}/ckpt/init_model.pt", pickle_module=dill
         )
 
-    wandb.init(project="dorl-hw1",
-               entity="robbycostales",
-               name=args.result_folder,
-               config=deepcopy(args)
-    )
+    if args.wandb:
+        wandb.init(project="dorl-hw1",
+                   entity="robbycostales",
+                   name=args.result_folder,
+                   config=deepcopy(args)
+        )
 
     # training loop
     # we pass flattened gradients to the FrequentDirectionAccountant before clearing the grad buffer
@@ -216,7 +218,8 @@ if __name__ == "__main__":
                 )
 
             summary_writer.add_scalar("train/loss", loss.item(), step)
-            wandb.log({"train_loss": loss.item(), "epoch": epoch, "step": step})
+            if args.wandb:
+                wandb.log({"train_loss": loss.item(), "epoch": epoch, "step": step})
             step += 1
 
             if step % 100 == 0:
@@ -236,9 +239,10 @@ if __name__ == "__main__":
         loss, acc = get_loss_value(model, test_loader, device=args.device)
         logger.info(f'Accuracy of the model on the test images: {100 * acc}%')
         summary_writer.add_scalar("test/acc", acc, step)
-        wandb.log({"test_acc": acc, "epoch": epoch})
         summary_writer.add_scalar("test/loss", loss, step)
-        wandb.log({"test_loss": loss, "epoch": epoch})
+        if args.wandb:
+            wandb.log({"test_acc": acc, "epoch": epoch})
+            wandb.log({"test_loss": loss, "epoch": epoch})
 
     logger.info(f"Time to computer frequent directions {direction_time} s")
 

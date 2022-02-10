@@ -19,6 +19,7 @@ class FrequentDirectionAccountant:
         self.K = k
         self.L = l
         self.N = n
+        self.device = device
 
         self.step = 0
         self.buffer = torch.zeros(self.L, self.N, device=device)
@@ -31,7 +32,11 @@ class FrequentDirectionAccountant:
         """
 
         self.buffer[self.L - 1] = vector
-        _, S, Vt = torch.linalg.svd(self.buffer, full_matrices=False)
+        buffer = self.buffer.cpu().numpy()
+        _, S, Vt = numpy.linalg.svd(buffer, full_matrices=False)
+        # _, S, Vt = torch.linalg.svd(self.buffer, full_matrices=False)
+        S = torch.from_numpy(S).float().to(self.device)
+        Vt = torch.from_numpy(Vt).float().to(self.device)
         delta = S[-1] ** 2
         new_svd_vals = torch.sqrt(torch.clip(S ** 2 - delta, min=0, max=None))
         self.buffer = torch.diag(new_svd_vals) @ Vt
@@ -42,7 +47,9 @@ class FrequentDirectionAccountant:
 
     def get_current_directions(self):
         """return top k eigen vectors of A^TA"""
-        _, _, Vt_B = torch.linalg.svd(self.buffer, full_matrices=False)
+        buffer = self.buffer.cpu().numpy()
+        _, _, Vt_B = torch.linalg.svd(buffer, full_matrices=False)
+        Vt_B = torch.from_numpy(Vt_B).float().to(self.device)
         return Vt_B[:self.K]
 
 
