@@ -13,6 +13,9 @@ import logging
 import os
 import pprint
 import time
+from copy import deepcopy
+import matplotlib.pyplot as plt
+import wandb
 
 import dill
 import numpy.random
@@ -98,6 +101,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mode", required=False, nargs="+", choices=["test", "train"], default=["test", "train"]
     )
+    parser.add_argument(
+        "--num_blurry_epochs", required=False, type=int, default=0
+    )
 
     # model related arguments
     parser.add_argument("--statefile", "-s", required=False, default=None)
@@ -161,14 +167,28 @@ if __name__ == "__main__":
             model.state_dict(), f"{args.result_folder}/ckpt/init_model.pt", pickle_module=dill
         )
 
+    wandb.init(project="dorl-hw1",
+               entity="robbycostales",
+               name=args.result_folder,
+               config=deepcopy(args)
+    )
+
     # training loop
     # we pass flattened gradients to the FrequentDirectionAccountant before clearing the grad buffer
     total_step = len(train_loader) * NUM_EPOCHS
     step = 0
     direction_time = 0
+    blur = torchvision.transforms.GaussianBlur(7, sigma=3.0)
     for epoch in range(NUM_EPOCHS):
+        if epoch < args.num_blurry_epochs:
+            print("A blurry one!")
+
         model.train()
         for i, (images, labels) in enumerate(train_loader):
+
+            if epoch < args.num_blurry_epochs:
+                images = blur(images)
+
             images = images.to(args.device)
             labels = labels.to(args.device)
 
@@ -196,6 +216,7 @@ if __name__ == "__main__":
                 )
 
             summary_writer.add_scalar("train/loss", loss.item(), step)
+            wandb.log({"train_loss": loss.item(), "epoch": epoch, "step": step})
             step += 1
 
             if step % 100 == 0:
@@ -215,7 +236,9 @@ if __name__ == "__main__":
         loss, acc = get_loss_value(model, test_loader, device=args.device)
         logger.info(f'Accuracy of the model on the test images: {100 * acc}%')
         summary_writer.add_scalar("test/acc", acc, step)
+        wandb.log({"test_acc": acc, "epoch": epoch})
         summary_writer.add_scalar("test/loss", loss, step)
+        wandb.log({"test_loss": loss, "epoch": epoch})
 
     logger.info(f"Time to computer frequent directions {direction_time} s")
 
