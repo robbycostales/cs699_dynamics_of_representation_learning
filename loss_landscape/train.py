@@ -178,15 +178,17 @@ if __name__ == "__main__":
     total_step = len(train_loader) * NUM_EPOCHS
     step = 0
     direction_time = 0
+    # Create function for blurring images
     blur = torchvision.transforms.GaussianBlur(7, sigma=3.0)
     for epoch in range(NUM_EPOCHS):
         if epoch < args.num_blurry_epochs:
-            print("A blurry one!")
+            print("A blurry epoch!")
 
         model.train()
         for i, (images, labels) in enumerate(train_loader):
 
             if epoch < args.num_blurry_epochs:
+                # Blur the images
                 images = blur(images)
 
             images = images.to(args.device)
